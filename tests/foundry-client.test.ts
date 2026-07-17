@@ -502,6 +502,50 @@ describe("FoundryClient", () => {
     expect(docs).toEqual([{ _id: "1", name: "A", type: "npc" }]);
   });
 
+  test("getDocument resolves dot-notation fields end to end", async () => {
+    const { client } = createClient();
+    jest.spyOn(client, "requestWorldData").mockResolvedValue({
+      actors: [
+        {
+          _id: "jJ10LA0URnIaLu7g",
+          name: "Bezaliel",
+          system: {
+            age: 52,
+            aspirations: "Uncover the Mysteries.",
+            attributes_physical: { strength: { value: 1 }, stamina: { value: 2 } },
+            touchstones_vampire: { "1": "", "2": "" },
+            secret: "omitted",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      client.getDocument(
+        "actors",
+        { name: "Bezaliel" },
+        {
+          requestedFields: [
+            "system.age",
+            "system.aspirations",
+            "system.attributes_physical.strength",
+            "system.touchstones_vampire.1",
+            "system.nonexistent.path",
+          ],
+        }
+      )
+    ).resolves.toEqual({
+      _id: "jJ10LA0URnIaLu7g",
+      name: "Bezaliel",
+      system: {
+        age: 52,
+        aspirations: "Uncover the Mysteries.",
+        attributes_physical: { strength: { value: 1 } },
+        touchstones_vampire: { "1": "" },
+      },
+    });
+  });
+
   test("getDocument resolves by id and name", async () => {
     const { client } = createClient();
     jest.spyOn(client, "requestWorldData").mockResolvedValue({

@@ -63,6 +63,42 @@ describe("server tools", () => {
     expect((response as any).isError).toBeUndefined();
   });
 
+  test("get_actor resolves dot-notation through the real client and filter", async () => {
+    const { FoundryClient } = await import("../src/foundry-client.js");
+    const client = new FoundryClient("/tmp/creds.json", {
+      logger: { error: jest.fn() },
+      wsLogger: { logInbound: jest.fn(), logOutbound: jest.fn(), close: jest.fn() },
+    } as any);
+
+    jest.spyOn(client, "isConnected").mockReturnValue(true);
+    jest.spyOn(client, "requestWorldData").mockResolvedValue({
+      actors: [
+        {
+          _id: "jJ10LA0URnIaLu7g",
+          name: "Bezaliel",
+          system: { age: 52, aspirations: "Uncover the Mysteries.", secret: "omitted" },
+        },
+      ],
+    });
+
+    const handler = createToolHandler(client);
+    const response = await handler({
+      params: {
+        name: "get_actor",
+        arguments: {
+          name: "Bezaliel",
+          requested_fields: ["system.age", "system.aspirations"],
+        },
+      },
+    });
+
+    expect(JSON.parse((response as any).content[0].text)).toEqual({
+      _id: "jJ10LA0URnIaLu7g",
+      name: "Bezaliel",
+      system: { age: 52, aspirations: "Uncover the Mysteries." },
+    });
+  });
+
   test("get_[plural] returns error on failure", async () => {
     const client = {
       isConnected: () => true,

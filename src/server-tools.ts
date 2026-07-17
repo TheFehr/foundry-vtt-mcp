@@ -37,7 +37,7 @@ export function generateListToolDefinition(config: DocumentTypeConfig) {
         requested_fields: {
           type: "array",
           items: { type: "string" },
-          description: `Array of field names to include in each ${config.description} object. Always includes _id and name. If empty, undefined, or null, all fields are included.`,
+          description: `Array of field names to include in each ${config.description} object. Supports dot-notation for nested fields (e.g. "system.aspirations"), which returns just that nested value under its parent. Always includes _id and name. If empty, undefined, or null, all fields are included.`,
         },
         where: {
           type: "object",
@@ -72,7 +72,7 @@ export function generateGetToolDefinition(config: DocumentTypeConfig) {
         requested_fields: {
           type: "array",
           items: { type: "string" },
-          description: `Array of field names to include in the ${config.description} object. Always includes _id and name. If empty, undefined, or null, all fields are included.`,
+          description: `Array of field names to include in the ${config.description} object. Supports dot-notation for nested fields (e.g. "system.aspirations"), which returns just that nested value under its parent. Always includes _id and name. If empty, undefined, or null, all fields are included.`,
         },
       },
       required: [],

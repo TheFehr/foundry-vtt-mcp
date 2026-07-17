@@ -1,3 +1,7 @@
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function filterDocumentFields(
   doc: Record<string, unknown>,
   requestedFields: string[] | null
@@ -11,10 +15,46 @@ export function filterDocumentFields(
   fieldsToInclude.add("name");
 
   const filtered: Record<string, unknown> = {};
+  const owned = new WeakSet<object>();
+  owned.add(filtered);
   for (const field of fieldsToInclude) {
     if (field in doc) {
       filtered[field] = doc[field];
+      continue;
     }
+
+    const path = field.split(".");
+
+    let source: unknown = doc;
+    let found = true;
+    for (const segment of path) {
+      if (isPlainObject(source) && segment in source) {
+        source = source[segment];
+      } else {
+        found = false;
+        break;
+      }
+    }
+    if (!found) {
+      continue;
+    }
+
+    let target = filtered;
+    for (let i = 0; i < path.length - 1; i++) {
+      const segment = path[i];
+      const existing = target[segment];
+      if (!isPlainObject(existing)) {
+        const created: Record<string, unknown> = {};
+        target[segment] = created;
+        owned.add(created);
+      } else if (!owned.has(existing)) {
+        const clone = { ...existing };
+        target[segment] = clone;
+        owned.add(clone);
+      }
+      target = target[segment] as Record<string, unknown>;
+    }
+    target[path[path.length - 1]] = source;
   }
   return filtered;
 }

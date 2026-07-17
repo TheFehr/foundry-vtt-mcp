@@ -128,7 +128,7 @@ These tools retrieve all documents of a given type from the connected world.
 
 **Parameters:**
 - `max_length` (integer, optional): Maximum response size in bytes. Documents are removed from the response until it fits within this limit.
-- `requested_fields` (string[], optional): Specific fields to include. Always includes `_id` and `name`. If omitted, all fields are returned.
+- `requested_fields` (string[], optional): Specific fields to include. Supports dot-notation for nested fields (e.g. `system.attributes.hp`). Always includes `_id` and `name`. If omitted, all fields are returned. See [Selecting nested fields](#selecting-nested-fields) below.
 - `where` (object, optional): Filter documents by field values. See [Filtering with `where`](#filtering-with-where) below.
 
 ### Document Retrieval (Single)
@@ -155,7 +155,7 @@ These tools retrieve a single document by ID or name.
 - `id` (string): Document ID
 - `_id` (string): Document ID (alias)
 - `name` (string): Document name
-- `requested_fields` (string[], optional): Specific fields to include.
+- `requested_fields` (string[], optional): Specific fields to include. Supports dot-notation for nested fields (e.g. `system.attributes.hp`). Always includes `_id` and `name`. If omitted, all fields are returned. See [Selecting nested fields](#selecting-nested-fields) below.
 
 ### World Metadata
 
@@ -326,6 +326,39 @@ This returns only actors where `folder` equals `"abcd1234"` AND `type` equals `"
 - `ownership` - Filter by ownership settings
 - Any top-level field on the document can be used as a filter key
 
+### Selecting nested fields
+
+`requested_fields` accepts dot-notation paths, so you can pull a single nested value instead of a whole subtree. Requesting `system` on a character-heavy game system can return tens of kilobytes; requesting `system.attributes.hp` returns just what you asked for.
+
+```json
+{
+  "name": "Bezaliel",
+  "requested_fields": ["system.age", "system.attributes_physical.strength", "img"]
+}
+```
+
+```json
+{
+  "system": {
+    "age": 52,
+    "attributes_physical": { "strength": { "value": 1, "final": 1 } }
+  },
+  "img": "worlds/my-world/assets/bezaliel.jpg",
+  "_id": "jJ10LA0URnIaLu7g",
+  "name": "Bezaliel"
+}
+```
+
+Specifics worth knowing:
+
+- **The result keeps its nesting.** A request for `system.age` comes back as `{"system": {"age": 52}}`, not as a flat `"system.age"` key, so the shape matches the document you'd get from an unfiltered request.
+- **Paths sharing a parent merge.** `["system.age", "system.sex"]` returns both under a single `system` object.
+- **A broader path wins over a narrower one.** Requesting both `system.attributes_physical` and `system.attributes_physical.strength` returns the full `attributes_physical` object.
+- **Literal keys take precedence.** If a document genuinely has a key named `"system.age"`, that value is returned as-is and the path is not traversed.
+- **Missing paths are skipped silently.** `system.nonexistent.path` is omitted from the response rather than erroring, and it does not affect the other requested fields.
+- **Arrays are opaque.** You can request an array (`system.progress`), but you cannot index into one — `system.progress.0.name` resolves to nothing.
+- **`where` does not support dot-notation.** It matches top-level fields only, so `requested_fields` and `where` follow different rules in the same request.
+
 ### Response Size Management
 
 When working with large worlds, use `max_length` and `requested_fields` to limit response sizes:
@@ -336,6 +369,8 @@ When working with large worlds, use `max_length` and `requested_fields` to limit
   "requested_fields": ["name", "type", "system.attributes.hp"]
 }
 ```
+
+`max_length` applies to list tools only, and drops whole documents from the end of the response until it fits. Narrowing `requested_fields` shrinks every document instead, so the two combine well.
 
 ## How It Works
 
